@@ -12,10 +12,7 @@ import { APIContext } from "@mwdb-web/commons/api";
 import { RelationsNode } from "../RelationsNode";
 import { RelationToManyNode } from "../RelationToManyNode";
 import { Edge, NodeProp, RelatedObject } from "@mwdb-web/types/types";
-
-const DagreD3Plot = React.lazy(() =>
-    import("../DagreD3Plot").then((module) => ({ default: module.DagreD3Plot }))
-);
+import XYFlowPlot from "../XYFlowPlot";
 
 const nodeStatuses = {
     initial: "initial",
@@ -122,11 +119,17 @@ export function RelationsPlotView(props: Props) {
     ) => {
         if (type === "parent") {
             setNodes((prevNodes) =>
-                addNodes(prevNodes, obj, { parent: obj.id, child: edgeId })
+                addNodes(prevNodes, obj, {
+                    parent: obj.id,
+                    child: edgeId as string,
+                })
             );
         } else if (type === "children") {
             setNodes((prevNodes) =>
-                addNodes(prevNodes, obj, { parent: edgeId, child: obj.id })
+                addNodes(prevNodes, obj, {
+                    parent: edgeId as string,
+                    child: obj.id,
+                })
             );
         } else {
             setNodes((prevNodes) => addNodes(prevNodes, obj));
@@ -188,7 +191,7 @@ export function RelationsPlotView(props: Props) {
     return (
         <Suspense fallback={<div />}>
             {nodesStatus === nodeStatuses.showGraph && (
-                <DagreD3Plot
+                <XYFlowPlot
                     width={defaultProps.width}
                     height={height ? +height : defaultProps.height}
                     nodes={nodes.nodes}

@@ -320,6 +320,6 @@ export type NodeProp = {
 };
 
 export type Edge = {
-    child: string | null;
-    parent: string | null;
+    child: string;
+    parent: string;
 };
