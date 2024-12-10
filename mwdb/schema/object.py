@@ -30,6 +30,18 @@ class ObjectListRequestSchema(Schema):
             )
 
 
+class ObjectItemRequestSchema(Schema):
+    exclude_relations = fields.Boolean(
+        truthy={
+            "1",
+            "",
+        },
+        falsy={"0"},
+        missing=False,
+        allow_none=False,
+    )
+
+
 class ObjectCountRequestSchema(Schema):
     query = fields.Str(missing=None)
 
@@ -103,12 +115,6 @@ class ObjectItemResponseSchema(Schema):
     upload_time = UTCDateTime(required=True, allow_none=False)
     favorite = fields.Boolean(required=True, allow_none=False)
 
-    parents = fields.Nested(
-        ObjectListItemResponseSchema, many=True, required=True, allow_none=False
-    )
-    children = fields.Nested(
-        ObjectListItemResponseSchema, many=True, required=True, allow_none=False
-    )
     attributes = fields.Nested(
         AttributeItemResponseSchema, many=True, required=True, allow_none=False
     )
@@ -123,6 +129,27 @@ class ObjectItemResponseSchema(Schema):
         schema = AttributeItemResponseSchema()
         attributes_serialized = schema.dump(object_attributes, many=True)
         return {**data, "attributes": attributes_serialized}
+
+
+class RelationsResponseSchema(Schema):
+    parents = fields.Method("get_parents")
+    children = fields.Nested(
+        ObjectListItemResponseSchema, many=True, required=True, allow_none=False
+    )
+
+    def get_parents(self, obj):
+        parents = obj.query_visible_parents().all()
+        schema = ObjectListItemResponseSchema()
+        return schema.dump(parents, many=True)
+
+
+class ObjectItemAndRelationsResponseSchema(
+    ObjectItemResponseSchema, RelationsResponseSchema
+):
+    """
+    This is legacy schema that returns object item along with relations
+    It is awfully slow when object is bound with lots of relatives
+    """
 
 
 class ObjectCountResponseSchema(Schema):

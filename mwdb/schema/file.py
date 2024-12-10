@@ -9,6 +9,7 @@ from .object import (
     ObjectLegacyMetakeysMixin,
     ObjectListItemResponseSchema,
     ObjectListResponseSchemaBase,
+    RelationsResponseSchema,
 )
 
 
@@ -69,6 +70,15 @@ class FileItemResponseSchema(ObjectItemResponseSchema):
     latest_config = fields.Nested(
         ConfigLatestItemResponseSchema, required=True, allow_none=True
     )
+
+
+class FileItemAndRelationsResponseSchema(
+    FileItemResponseSchema, RelationsResponseSchema
+):
+    """
+    This is legacy schema that returns object item along with relations
+    It is awfully slow when object is bound with lots of relatives
+    """
 
 
 class FileDownloadTokenResponseSchema(Schema):

@@ -8,6 +8,7 @@ from mwdb.model import TextBlob
 from mwdb.model.object import ObjectTypeConflictError
 from mwdb.schema.blob import (
     BlobCreateRequestSchema,
+    BlobItemAndRelationsResponseSchema,
     BlobItemResponseSchema,
     BlobLegacyCreateRequestSchema,
     BlobListResponseSchema,
@@ -184,6 +185,7 @@ class TextBlobResource(ObjectResource, TextBlobUploader):
 class TextBlobItemResource(ObjectItemResource, TextBlobUploader):
     ObjectType = TextBlob
     ItemResponseSchema = BlobItemResponseSchema
+    ItemAndRelationsResponseSchema = BlobItemAndRelationsResponseSchema
     CreateRequestSchema = BlobLegacyCreateRequestSchema
 
     def call_specialised_remove_hook(self, text_blob):

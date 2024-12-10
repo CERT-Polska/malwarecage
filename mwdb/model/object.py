@@ -7,7 +7,7 @@ from flask import g
 from sqlalchemy import and_, cast, distinct, exists, func, select
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import aliased, column_property, contains_eager
+from sqlalchemy.orm import column_property
 from sqlalchemy.sql.expression import true
 
 from mwdb.core.capabilities import Capabilities
@@ -449,6 +449,21 @@ class Object(db.Model):
 
         return created_object, is_new
 
+    def query_visible_parents(self, requestor=None):
+        """
+        Queries for parents visible by specified requestor.
+        """
+        if requestor is None:
+            requestor = g.auth_user
+
+        return (
+            db.session.query(Object)
+            .join(relation, relation.c.parent_id == Object.id)
+            .filter(relation.c.child_id == self.id)
+            .order_by(relation.c.creation_time.desc())
+            .filter(requestor.has_access_to_object(Object.id))
+        )
+
     @classmethod
     def access(cls, identifier, requestor=None):
         """
@@ -467,34 +482,11 @@ class Object(db.Model):
         if requestor is None:
             requestor = g.auth_user
 
-        obj = cls.get(identifier)
+        obj_query = cls.get(identifier)
+        obj = obj_query.first()
         # If object doesn't exist - it doesn't exist
-        if obj.first() is None:
+        if obj is None:
             return None
-
-        # In that case we want only those parents to which requestor has access.
-        stmtp = (
-            db.session.query(Object)
-            .join(relation, relation.c.parent_id == Object.id)
-            .filter(
-                Object.id.in_(
-                    db.session.query(relation.c.parent_id).filter(
-                        relation.c.child_id == obj.first().id
-                    )
-                )
-            )
-            .order_by(relation.c.creation_time.desc())
-            .filter(requestor.has_access_to_object(Object.id))
-        )
-        stmtp = stmtp.subquery()
-
-        parent = aliased(Object, stmtp)
-
-        obj = (
-            obj.outerjoin(parent, Object.parents)
-            .options(contains_eager(Object.parents, alias=parent))
-            .all()[0]
-        )
 
         # Ok, now let's check whether requestor has explicit access
         if obj.has_explicit_access(requestor):

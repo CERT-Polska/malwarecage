@@ -6,6 +6,7 @@ from .object import (
     ObjectLegacyMetakeysMixin,
     ObjectListItemResponseSchema,
     ObjectListResponseSchemaBase,
+    RelationsResponseSchema,
 )
 
 
@@ -58,6 +59,15 @@ class ConfigItemResponseSchema(ObjectItemResponseSchema):
     family = fields.Str(required=True, allow_none=False)
     config_type = fields.Str(required=True, allow_none=False)
     cfg = fields.Dict(required=True, allow_none=False)
+
+
+class ConfigItemAndRelationsResponseSchema(
+    ConfigItemResponseSchema, RelationsResponseSchema
+):
+    """
+    This is legacy schema that returns object item along with relations
+    It is awfully slow when object is bound with lots of relatives
+    """
 
 
 class ConfigStatsItemResponseSchema(Schema):

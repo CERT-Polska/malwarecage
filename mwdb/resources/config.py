@@ -13,6 +13,7 @@ from mwdb.model.object import ObjectTypeConflictError
 from mwdb.schema.blob import BlobCreateSpecSchema
 from mwdb.schema.config import (
     ConfigCreateRequestSchema,
+    ConfigItemAndRelationsResponseSchema,
     ConfigItemResponseSchema,
     ConfigLegacyCreateRequestSchema,
     ConfigListResponseSchema,
@@ -164,6 +165,7 @@ class ConfigResource(ObjectResource, ConfigUploader):
     ObjectType = Config
     ListResponseSchema = ConfigListResponseSchema
     ItemResponseSchema = ConfigItemResponseSchema
+    ItemAndRelationsResponseSchema = ConfigItemAndRelationsResponseSchema
 
     @requires_authorization
     def get(self):
@@ -306,6 +308,7 @@ class ConfigItemResource(ObjectItemResource, ConfigUploader):
 
     ObjectType = Config
     ItemResponseSchema = ConfigItemResponseSchema
+    ItemAndRelationsResponseSchema = ConfigItemAndRelationsResponseSchema
     CreateRequestSchema = ConfigLegacyCreateRequestSchema
 
     def call_specialised_remove_hook(self, config):

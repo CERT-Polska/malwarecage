@@ -7,6 +7,7 @@ from .object import (
     ObjectLegacyMetakeysMixin,
     ObjectListItemResponseSchema,
     ObjectListResponseSchemaBase,
+    RelationsResponseSchema,
 )
 from .utils import UTCDateTime
 
@@ -47,3 +48,12 @@ class BlobItemResponseSchema(ObjectItemResponseSchema):
     latest_config = fields.Nested(
         ConfigItemResponseSchema, required=True, allow_none=True
     )
+
+
+class BlobItemAndRelationsResponseSchema(
+    BlobItemResponseSchema, RelationsResponseSchema
+):
+    """
+    This is legacy schema that returns object item along with relations
+    It is awfully slow when object is bound with lots of relatives
+    """

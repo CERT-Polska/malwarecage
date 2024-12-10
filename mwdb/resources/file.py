@@ -11,6 +11,7 @@ from mwdb.model.object import ObjectTypeConflictError
 from mwdb.schema.file import (
     FileCreateRequestSchema,
     FileDownloadTokenResponseSchema,
+    FileItemAndRelationsResponseSchema,
     FileItemResponseSchema,
     FileLegacyCreateRequestSchema,
     FileListResponseSchema,
@@ -201,6 +202,7 @@ class FileResource(ObjectResource, FileUploader):
 class FileItemResource(ObjectItemResource, FileUploader):
     ObjectType = File
     ItemResponseSchema = FileItemResponseSchema
+    ItemAndRelationsResponseSchema = FileItemAndRelationsResponseSchema
     CreateRequestSchema = FileLegacyCreateRequestSchema
 
     def call_specialised_remove_hook(self, file):
@@ -223,6 +225,15 @@ class FileItemResource(ObjectItemResource, FileUploader):
               schema:
                 type: string
               description: File identifier (SHA256/SHA512/SHA1/MD5)
+            - in: query
+              name: exclude_relations
+              schema:
+                type: integer
+              description: |
+                If set, results doesn't include relations
+                which will be default behavior on next major release of MWDB
+              required: false
+              default: 0
         responses:
             200:
                 description: Information about file
