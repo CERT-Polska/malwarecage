@@ -76,7 +76,6 @@ class Object(db.Model):
         secondary=relation,
         primaryjoin=(id == relation.c.child_id),
         secondaryjoin=(id == relation.c.parent_id),
-        order_by=relation.c.creation_time.desc(),
         back_populates="children",
     )
     children = db.relationship(
@@ -163,6 +162,19 @@ class Object(db.Model):
             .filter(relation.c.child_id == self.id)
             .order_by(relation.c.creation_time.desc())
             .filter(g.auth_user.has_access_to_object(Object.id))
+        )
+
+    @property
+    def limit_children(self):
+        """
+        Child objects that are limited for current object
+        """
+        return (
+            db.session.query(Object)
+            .join(relation, relation.c.child_id == Object.id)
+            .filter(relation.c.parent_id == self.id)
+            .order_by(relation.c.creation_time.desc())
+            .limit(100)
         )
 
     def add_parent(self, parent, commit=True):
