@@ -62,6 +62,7 @@ import { UploadConfigView } from "@mwdb-web/components/Upload/Views/UploadConfig
 import { UploadBlobView } from "@mwdb-web/components/Upload/Views/UploadBlobView";
 import { UploadFileView } from "@mwdb-web/components/Upload/Views/UploadFileView";
 import { SearchView } from "@mwdb-web/components/Views/SearchView";
+import { GroupJoinView } from "@mwdb-web/components/Views/GroupJoinView";
 
 export function AppRoutes() {
     return (
@@ -119,6 +120,7 @@ export function AppRoutes() {
                     <Route index element={<ProfileDetails />} />
                     <Route path="user/:user" element={<ProfileDetails />} />
                     <Route path="group/:group" element={<ProfileGroup />} />
+                    <Route path="group/join" element={<GroupJoinView />} />
                     <Route
                         path="group/:group/members"
                         element={<ProfileGroupMembers />}

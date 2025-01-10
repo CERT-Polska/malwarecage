@@ -1,5 +1,6 @@
 import { useContext, useEffect, useState } from "react";
 import { Navigate, useParams, useOutletContext } from "react-router-dom";
+import { toast } from "react-toastify";
 import { isEmpty, isNil } from "lodash";
 
 import { api } from "@mwdb-web/commons/api";
@@ -9,6 +10,47 @@ import { Capability } from "@mwdb-web/types/types";
 import { ProfileGroupItems } from "../common/ProfileGroupItems";
 import { ProfileOutletContext } from "@mwdb-web/types/context";
 import { Group } from "@mwdb-web/types/types";
+import { getErrorMessage } from "@mwdb-web/commons/helpers";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faPlus } from "@fortawesome/free-solid-svg-icons";
+
+function InviteMemberForm({ groupName }: { groupName: string }) {
+    const [newMember, setNewMember] = useState("");
+
+    async function inviteMember(invitedUserLogin: string) {
+        try {
+            await api.requestGroupInviteLink(groupName, invitedUserLogin);
+            toast("Invitation sent", { type: "success" });
+        } catch (error) {
+            toast(getErrorMessage(error), { type: "error" });
+        }
+    }
+
+    return (
+        <div className="card">
+            <div className="card-body">
+                <input
+                    className="form-control"
+                    placeholder="User login"
+                    value={newMember}
+                    onChange={(event) => {
+                        setNewMember(event.target.value);
+                    }}
+                />
+                <button
+                    className="btn btn-outline-success mt-2 mr-1"
+                    disabled={newMember.length === 0}
+                    onClick={() => {
+                        inviteMember(newMember);
+                        setNewMember("");
+                    }}
+                >
+                    <FontAwesomeIcon icon={faPlus} /> Invite member
+                </button>
+            </div>
+        </div>
+    );
+}
 
 export function ProfileGroupMembers() {
     const auth = useContext(AuthContext);
@@ -72,6 +114,7 @@ export function ProfileGroupMembers() {
                 Group <span className="text-monospace">{groupName}</span>{" "}
                 members
             </h4>
+            <InviteMemberForm groupName={`${groupName}`} />
             <table className="table table-striped table-bordered wrap-table">
                 <tbody>
                     <tr className="d-flex">

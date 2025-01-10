@@ -12,6 +12,7 @@ class AuthScope(Enum):
     api_key = "api_key"
     set_password = "set_password"
     download_file = "download_file"
+    group_invite = "group_invite"
 
 
 def generate_token(fields, scope, expiration=None):
