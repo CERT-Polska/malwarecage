@@ -37,10 +37,11 @@ export type Token = {
 
 export type Option = {
     searchEndpoint: string;
+    lambdaResults?: { [id: string]: any };
 };
 
 // Custom renderer into React components
-export function renderTokens(tokens: Token[], options?: Option): any {
+export function renderTokens(tokens: Token[], options: Option): any {
     const renderers = {
         text(token: Token) {
             return token.tokens
@@ -89,24 +90,32 @@ export function renderTokens(tokens: Token[], options?: Option): any {
             );
         },
         link(token: Token) {
-            if (token.href && token.href.startsWith("search#")) {
-                const query = token.href.slice("search#".length);
-                const search =
-                    "?" +
-                    new URLSearchParams({
-                        q: decodeURIComponent(query),
-                    }).toString();
-                return (
-                    <Link
-                        key={uniqueId()}
-                        to={{
-                            pathname: options?.searchEndpoint,
-                            search,
-                        }}
-                    >
-                        {renderTokens(token.tokens ?? [], options)}
-                    </Link>
-                );
+            if (token.href) {
+                if (token.href.startsWith("search#")) {
+                    const query = token.href.slice("search#".length);
+                    const search =
+                        "?" +
+                        new URLSearchParams({
+                            q: decodeURIComponent(query),
+                        }).toString();
+                    return (
+                        <Link
+                            key={uniqueId()}
+                            to={{
+                                pathname: options?.searchEndpoint,
+                                search,
+                            }}
+                        >
+                            {renderTokens(token.tokens ?? [], options)}
+                        </Link>
+                    );
+                } else if (token.href.startsWith("lambda#")) {
+                    const id = token.href.slice("lambda#".length);
+                    if (!options.lambdaResults?.hasOwnProperty(id)) {
+                        return <i>{`(BUG: No lambda result for ${id})`}</i>;
+                    }
+                    return options.lambdaResults[id];
+                }
             }
             return (
                 <a key={uniqueId()} href={token.href}>
