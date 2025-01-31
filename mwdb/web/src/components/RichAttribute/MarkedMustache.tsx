@@ -166,6 +166,12 @@ class MustacheContext extends Mustache.Context {
     }
 
     lookupLambda(name: string) {
+        if(name.startsWith("$")) {
+            // If you want to call lambda, but its name collides with
+            // object key, you can alternatively put $ on the
+            // beginning
+            name = name.slice(1);
+        }
         const lambda = this.renderContext.lambdas[name];
         if (!lambda) return undefined;
         const context = this;

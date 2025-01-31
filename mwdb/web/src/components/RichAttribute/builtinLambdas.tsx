@@ -1,8 +1,6 @@
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faCheck, faWarning, faInfoCircle } from "@fortawesome/free-solid-svg-icons";
 
-function noop() {}
-
 function count(input: any[]): any {
     return input.length;
 }
@@ -11,7 +9,47 @@ function sort(input: any[]): any {
     return input.sort((a, b) => a.localeCompare(b, undefined, {numeric: true, sensitivity: 'base'}))
 }
 
-function sectionHeader(this: any, header: any, options: any): any {
+function first(input: any[]): any {
+    if(input.length > 0) {
+        return [input[0]]
+    } else {
+        return []
+    }
+}
+
+function last(input: any[]): any {
+    if(input.length > 0) {
+        return [input[input.length - 1]]
+    } else {
+        return []
+    }
+}
+
+function _if(text: any, options: any): any {
+    /**
+     * {{if}} clauses are useful if you want to render something conditionally
+     * Simple sections work the same, but then value references are in nested
+     * contexts
+     */
+    // TODO: make it mustache only
+    options.context.lambdaContext["if"] = !!(text.trim());
+}
+
+function _then(text: any, options: any): any {
+    if(options.context.lambdaContext["if"])
+        return options.renderer(text);
+    else
+        return "";
+}
+
+function _else(text: any, options: any): any {
+    if(!options.context.lambdaContext["if"])
+        return options.renderer(text);
+    else
+        return "";
+}
+
+function sectionHeader(header: any, options: any): any {
     options.context.lambdaContext["sectionHeader"] = options.renderer(header);
     return "";
 }
@@ -60,11 +98,15 @@ export type LambdaFunction = (
 ) => any;
 
 export const builtinLambdas = {
-    makeList: noop,
     count,
     sort,
+    first,
+    last,
     "section.header": sectionHeader,
     "section": section,
     "indicator.type": indicatorType,
     "indicator": indicator,
+    "if": _if,
+    "then": _then,
+    "else": _else,
 };
