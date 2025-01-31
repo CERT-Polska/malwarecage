@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faCheck, faWarning, faInfoCircle } from "@fortawesome/free-solid-svg-icons";
 
@@ -25,13 +26,47 @@ function last(input: any[]): any {
     }
 }
 
+function groupBy(key: any, options: any): any {
+    options.context.lambdaContext["groupBy"] = key.trim();
+    return "";
+}
+
+function group(input: any[], options: any): any {
+    const groupBy = options.context.lambdaContext["groupBy"];
+    let result: any = {};
+    for(let item of input) {
+        const key = item[groupBy];
+        if(!result[key]) {
+            result[key] = [];
+        }
+        result[key].push(item);
+    }
+    return result;
+}
+
+function keys(input: any): any {
+    return Object.keys(input)
+}
+
+function values(input: any): any {
+    return Object.values(input)
+}
+
+function entries(input: any): any {
+    return Object.entries(input).map(([k, v]) => ({"key": k, "value": v}))
+}
+
+function jsonify(input: any[]): any {
+    return JSON.stringify(input);
+}
+
 function _if(text: any, options: any): any {
     /**
      * {{if}} clauses are useful if you want to render something conditionally
      * Simple sections work the same, but then value references are in nested
      * contexts
      */
-    // TODO: make it mustache only
+    // TODO: render but make it mustache only
     options.context.lambdaContext["if"] = !!(text.trim());
 }
 
@@ -65,6 +100,16 @@ function section(text: any, options: any): any {
     )
 }
 
+function collapseHeader(header: any, options: any): any {
+    options.context.lambdaContext["collapseHeader"] = options.renderer(header);
+    return "";
+}
+
+function collapse(text: any, options: any): any {
+    // todo
+    return "";
+}
+
 function indicatorType(this: any, value: any, options: any): any {
     options.context.lambdaContext["indicatorType"] = value.trim()
 }
@@ -83,7 +128,7 @@ function indicator(text: any, options: any): any {
     } else {
         icon = [<FontAwesomeIcon icon={faInfoCircle} className="text-primary mx-2" />]
     }
-    // TODO: Markdown adds paragraph. Make mustache-only renderer for such cases
+    // TODO: Markdown adds paragraph. We can style it to make inline-block from first p
     return (
         <div className="py-2">
             {icon} {text}
@@ -102,10 +147,18 @@ export const builtinLambdas = {
     sort,
     first,
     last,
+    group,
+    keys,
+    values,
+    entries,
+    jsonify,
+    "group.by": groupBy,
     "section.header": sectionHeader,
     "section": section,
     "indicator.type": indicatorType,
     "indicator": indicator,
+    "collapse.header": collapseHeader,
+    "collapse": collapse,
     "if": _if,
     "then": _then,
     "else": _else,

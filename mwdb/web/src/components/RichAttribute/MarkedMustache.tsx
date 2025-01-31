@@ -142,8 +142,9 @@ class MustacheContext extends Mustache.Context {
 
         let currentObject = this.view;
         for (let element of path) {
-            if (!Object.prototype.hasOwnProperty.call(currentObject, element))
+            if (!Object.prototype.hasOwnProperty.call(currentObject, element)) {
                 return undefined;
+            }
             currentObject = currentObject[element];
         }
 
