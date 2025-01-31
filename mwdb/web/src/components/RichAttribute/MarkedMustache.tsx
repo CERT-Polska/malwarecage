@@ -1,13 +1,9 @@
 import _, { uniqueId } from "lodash";
 import Mustache, { Context } from "mustache";
 import { marked, Tokenizer } from "marked";
-import {
-    escapeSearchValue,
-    Option,
-    renderTokens,
-    Token,
-} from "@mwdb-web/commons/helpers";
+import { escapeSearchValue } from "@mwdb-web/commons/helpers";
 import { fromPlugins } from "@mwdb-web/commons/plugins";
+import { markdownRenderer, Option, Token } from "./MarkdownRenderer"
 import { builtinLambdas, LambdaFunction } from "./builtinLambdas";
 
 /**
@@ -70,10 +66,28 @@ function makeQuery(path: string[], value: string, attributeKey: string) {
     return `${queryPath}:${escapeSearchValue(value)}`;
 }
 
-class SearchReference {
+abstract class Reference {
+    abstract toMarkdown(): string;
+}
+
+class LambdaResultReference extends Reference {
+    resultId: string;
+
+    constructor(resultId: string) {
+        super()
+        this.resultId = resultId;
+    }
+
+    toMarkdown(): string {
+        return `[](lambda#${this.resultId})`;
+    }
+}
+
+class SearchReference extends Reference {
     query: string;
     value: string;
     constructor(query: string, value: string) {
+        super();
         this.query = query;
         this.value = value;
     }
@@ -93,39 +107,32 @@ function escapeMarkdown(string: string) {
 
 // Extended context to provide special Mustache values in future
 class MustacheContext extends Mustache.Context {
-    globalView: any;
-    lastPath: string[] | null;
-    lastValue: string | null;
+    renderContext: MarkedMustache
     lambdaResults: { [id: string]: any };
-    lambdas: { [name: string]: LambdaFunction };
-    constructor(view: Object, parent?: MustacheContext, globalView?: any) {
-        super(view, parent);
-        this.globalView = globalView === undefined ? view : globalView;
-        // Stored absolute path of last lookup
-        this.lastPath = null;
-        // Stored value from last lookup to determine the type
-        this.lastValue = null;
-        this.lambdaResults = parent ? parent.lambdaResults : {};
-        this.lambdas = parent ? parent.lambdas : {};
-    }
+    lambdaContext: { [key: string]: any};
+    parentPath: string[];
+    lastPath: string[];
 
-    registerLambdas(lambdas: { [name: string]: LambdaFunction }) {
-        for (let lambdaName of Object.keys(lambdas))
-            this.lambdas[lambdaName] = lambdas[lambdaName];
+    constructor(view: Object, renderContext: MarkedMustache, parent?: MustacheContext, initialPath?: string[]) {
+        super(view, parent);
+        this.renderContext = renderContext;
+        this.lambdaResults = parent ? parent.lambdaResults : {};
+        this.lambdaContext = parent ? parent.lambdaContext : {};
+        if(parent) {
+            this.lambdaResults = parent.lambdaResults;
+            this.lambdaContext = parent.lambdaContext;
+            this.parentPath = parent.lastPath;
+        } else {
+            this.lambdaResults = {};
+            this.lambdaContext = {};
+            this.parentPath = initialPath || [];
+        }
+        this.lastPath = this.parentPath.slice();
     }
 
     push(view: Object): Context {
-        return new MustacheContext(view, this, this.globalView);
-    }
-
-    getParentPath() {
-        if (!this.parent) return [];
-        const parentContext = this.parent as MustacheContext;
-        const parentPath = parentContext.lastPath;
-        if (Array.isArray(parentContext.lastValue))
-            // If last value is array, add array operator to the last path element
-            return appendToLastElement(parentPath!, "*");
-        return parentPath;
+        // Creates new nested context (for section)
+        return new MustacheContext(view, this.renderContext, this);
     }
 
     lookupView(name: string) {
@@ -140,36 +147,46 @@ class MustacheContext extends Mustache.Context {
             currentObject = currentObject[element];
         }
 
-        this.lastPath = this.getParentPath()!.concat(path);
-        this.lastValue = currentObject;
+        this.lastPath = [...this.parentPath, ...path];
+        if(Array.isArray(currentObject) && this.lastPath.length > 0) {
+            this.lastPath[this.lastPath.length - 1] += "*"
+        }
         return currentObject;
     }
 
-    emitLambdaResult(result: any): string {
+    emitLambdaResult(result: any): any {
         if (typeof result !== "string") {
             let lambdaResultId = uniqueId("lambda_result");
             this.lambdaResults[lambdaResultId] = result;
             // Emit reference in markdown
-            return `[](lambda#${lambdaResultId})`;
+            return new LambdaResultReference(lambdaResultId);
         } else {
             return result;
         }
     }
 
     lookupLambda(name: string) {
-        const lambda = this.lambdas[name];
+        const lambda = this.renderContext.lambdas[name];
         if (!lambda) return undefined;
         const context = this;
+
         return function lambdaFunction(
             this: any,
-            text: string,
-            renderer: Function
+            template: string,
         ): string {
-            let result = lambda.call(this, text, {
+            const subrender = ((template: string) => {
+                return context.renderContext.render(template, this, context.lastPath);
+            })
+            let result = lambda.call(this, template, {
                 callType: "section",
-                renderer,
+                renderer: subrender,
+                context,
             });
-            return context.emitLambdaResult(result);
+            let lambdaResult = context.emitLambdaResult(result);
+            if(lambdaResult instanceof LambdaResultReference)
+                return lambdaResult.toMarkdown()
+            else
+                return lambdaResult;
         };
     }
 
@@ -180,12 +197,12 @@ class MustacheContext extends Mustache.Context {
         let result = this.lookupView(name);
         if (typeof result === "undefined") return undefined;
         for (let lambdaName of lambdaNames) {
-            const lambda = this.lambdas[lambdaName];
+            const lambda = this.renderContext.lambdas[lambdaName];
             if (!lambda) return undefined;
-            result = lambda.call(this.view, result, { callType: "pipeline" });
+            result = lambda.call(this.view, result, { callType: "pipeline", context: this });
             if (typeof result === "undefined") return undefined;
         }
-        return this.emitLambdaResult(result);
+        return result;
     }
 
     lookupSearchable(name: string) {
@@ -195,10 +212,9 @@ class MustacheContext extends Mustache.Context {
         if (isFunction(currentObject) || typeof currentObject === "object")
             // Non-primitives are not directly searchable
             return undefined;
-        const query = makeQuery(
-            this.lastPath as string[],
-            currentObject,
-            this.globalView["key"]
+        const query = this.renderContext.options.makeQuery(
+            this.lastPath,
+            currentObject
         );
         if (!query) return undefined;
         return new SearchReference(query, currentObject);
@@ -235,7 +251,7 @@ class MustacheWriter extends Mustache.Writer {
     escapedValue(token: string[], context: Context) {
         // https://github.com/janl/mustache.js/blob/550d1da9e3f322649d04b4795f5356914f6fd7e8/mustache.js#L663
         const value = context.lookup(token[1]);
-        if (value instanceof SearchReference) {
+        if (value instanceof Reference) {
             return value.toMarkdown();
         } else if (value != null)
             return typeof value === "number"
@@ -294,28 +310,63 @@ class MarkedTokenizer extends Tokenizer {
 const mustacheWriter = new MustacheWriter();
 const markedTokenizer = new MarkedTokenizer();
 
+type MarkedMustacheOptions = {
+    searchEndpoint: string;
+    lambdas: {[name: string]: Function};
+    makeQuery: (path: string[], value: any) => string;
+}
+
+class MarkedMustache {
+    globalView: object
+    options: MarkedMustacheOptions
+
+    constructor(globalView: any, options: MarkedMustacheOptions) {
+        this.globalView = globalView;
+        this.options = options;
+    }
+
+    get lambdas() {
+        return this.options.lambdas;
+    }
+
+    render(template: string, view: object, initialPath?: string[]) {
+        const context = new MustacheContext(view, this, undefined, initialPath);
+        const markdown = mustacheWriter.render(template, context);
+        const tokens = marked.lexer(markdown, {
+            ...marked.defaults,
+            tokenizer: markedTokenizer,
+        }) as Token[];
+        return markdownRenderer(tokens, {
+            searchEndpoint: this.options.searchEndpoint,
+            lambdaResults: context.lambdaResults
+        });
+    }
+}
+
 export function renderValue(template: string, value: Object, options: Option) {
     const pluginLambdas = [
         builtinLambdas,
         ...fromPlugins("mustacheExtensions"),
     ];
-    const context = new MustacheContext({
-        ...value,
-    });
-    for (let lambdaSet of pluginLambdas) {
-        context.registerLambdas(lambdaSet);
+
+    function makeQuery(path: string[], value: string): string {
+        console.log(path);
+        // TODO: make it context-aware
+        return "";
     }
-    const markdown = mustacheWriter.render(template, context);
-    const tokens = marked.lexer(markdown, {
-        ...marked.defaults,
-        tokenizer: markedTokenizer,
-    }) as Token[];
+
+    let lambdas = {}
+    for(let lambdaSet of pluginLambdas)
+        lambdas = {...lambdas, ...lambdaSet}
+
+    const markedMustache = new MarkedMustache(value, {
+        searchEndpoint: options.searchEndpoint,
+        lambdas,
+        makeQuery
+    })
     return (
         <div>
-            {renderTokens(tokens, {
-                ...options,
-                lambdaResults: context.lambdaResults,
-            })}
+            {markedMustache.render(template, value)}
         </div>
     );
 }
