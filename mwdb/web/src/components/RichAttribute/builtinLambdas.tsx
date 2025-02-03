@@ -7,6 +7,7 @@ import {
     faPlus,
     faMinus,
 } from "@fortawesome/free-solid-svg-icons";
+import { escapeSearchValue } from "@mwdb-web/commons/helpers";
 
 export type LambdaSectionOptions = {
     callType: "section";
