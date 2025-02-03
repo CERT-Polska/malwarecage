@@ -35,13 +35,16 @@ export type Token = {
     rows?: Token[][];
 };
 
-export type Option = {
+export type MarkdownRendererOptions = {
     searchEndpoint: string;
     lambdaResults?: { [id: string]: any };
 };
 
 // Custom renderer into React components
-export function markdownRenderer(tokens: Token[], options: Option): any {
+export function markdownRenderer(
+    tokens: Token[],
+    options: MarkdownRendererOptions
+): any {
     const renderers = {
         text(token: Token) {
             return token.tokens
@@ -153,7 +156,10 @@ export function markdownRenderer(tokens: Token[], options: Option): any {
                         >
                             {token.header?.map((head: Token, index: number) => (
                                 <div className={tableClasses.cell} key={index}>
-                                    {markdownRenderer(head.tokens ?? [], options)}
+                                    {markdownRenderer(
+                                        head.tokens ?? [],
+                                        options
+                                    )}
                                 </div>
                             ))}
                         </div>

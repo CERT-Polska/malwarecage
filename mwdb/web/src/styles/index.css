@@ -173,6 +173,10 @@ pre.attribute-object {
     color: red;
 }
 
+.md-p-inline > p {
+    display: inline-block;
+}
+
 /***
  User login CSS
  ***/
