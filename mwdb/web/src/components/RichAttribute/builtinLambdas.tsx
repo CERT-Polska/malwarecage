@@ -136,7 +136,7 @@ function collapse(text: any, options: LambdaSectionOptions): any {
     return (
         <>
             <div
-                className="md-p-inline"
+                className="md-p-inline my-2"
                 onClick={() => setCollapsed((collapsed) => !collapsed)}
                 style={{ cursor: "pointer" }}
             >
