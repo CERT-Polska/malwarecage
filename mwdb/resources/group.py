@@ -1,14 +1,18 @@
 from flask import g, request
 from sqlalchemy import exists
 from sqlalchemy.orm import joinedload
-from werkzeug.exceptions import Conflict, Forbidden, NotFound
+from werkzeug.exceptions import Conflict, Forbidden, InternalServerError, NotFound
 
 from mwdb.core.capabilities import Capabilities
+from mwdb.core.config import app_config
+from mwdb.core.mail import MailError, send_email_notification
 from mwdb.core.plugins import hooks
 from mwdb.core.service import Resource
 from mwdb.model import Group, Member, User, db
 from mwdb.schema.group import (
     GroupCreateRequestSchema,
+    GroupInvitationLinkResponseSchema,
+    GroupInviteTokenRequestSchema,
     GroupItemResponseSchema,
     GroupListResponseSchema,
     GroupMemberUpdateRequestSchema,
@@ -570,3 +574,231 @@ class GroupMemberResource(Resource):
         )
         schema = GroupSuccessResponseSchema()
         return schema.dump({"name": name})
+
+
+@rate_limited_resource
+class GroupInviteResource(Resource):
+    @requires_authorization
+    def post(self, name, invited_user):
+        """
+        ---
+        summary: Request invitation link
+        description: |
+            Creates invitation link and sends an email to the invited user.
+
+            Invitation link works only for secified group and specified user
+
+            Requires `manage_users` capability or group_admin membership.
+        security:
+            - bearerAuth: []
+        tags:
+            - group
+        parameters:
+            - in: path
+              name: name
+              schema:
+                type: string
+              description: Group name
+            - in: path
+              name: invited_user
+              schema:
+                type: string
+              description: Invited user login
+        responses:
+            200:
+                description: When link was created successfully
+                content:
+                  application/json:
+                    schema: GroupInvitationLinkResponseSchema
+            400:
+                description: When request body is invalid
+            403:
+                description: |
+                    When user doesn't have enough permissions,
+                    group is immutable or invited user is pending
+            404:
+                description: When invited user or group doesn't exist
+            409:
+                description: When user is already a member of this group
+            503:
+                description: |
+                    Request canceled due to database statement timeout.
+        """
+        group_obj = (db.session.query(Group).filter(Group.name == name)).first()
+
+        if group_obj is None:
+            raise NotFound("Group does not exist or you are not its member")
+
+        member_obj = (
+            db.session.query(Member)
+            .filter(Member.group_id == group_obj.id)
+            .filter(Member.user_id == g.auth_user.id)
+        ).first()
+
+        if member_obj is None:
+            raise NotFound("Group does not exist or you are not its member")
+
+        if not member_obj.group_admin:
+            raise Forbidden("You do not have group_admin role")
+
+        if group_obj.private or group_obj.immutable:
+            raise Forbidden("You cannot invite users to this group")
+
+        invited_user_obj = (
+            db.session.query(User).filter(User.login == invited_user)
+        ).first()
+
+        if invited_user_obj is None:
+            raise NotFound("Invited user does not exist")
+
+        if invited_user_obj.pending:
+            raise Forbidden("Invited user is pending")
+
+        if (
+            db.session.query(Member)
+            .filter(Member.group_id == group_obj.id)
+            .filter(Member.user_id == invited_user_obj.id)
+        ).first() is not None:
+            raise Conflict("Invited user is already a member of this group")
+
+        token = invited_user_obj.generate_group_invite_token(
+            group_obj.id, app_config.mwdb.group_invite_expiration_time
+        )
+
+        try:
+            send_email_notification(
+                "group_invitation",
+                "You have been invited to a new group in MWDB",
+                invited_user_obj.email,
+                base_url=app_config.mwdb.base_url,
+                login=invited_user_obj.login,
+                group_invite_token=token,
+            )
+        except MailError:
+            logger.exception("Can't send e-mail notification")
+            raise InternalServerError(
+                "SMTP server needed to fulfill this request is"
+                " not configured or unavailable."
+            )
+
+        schema = GroupInvitationLinkResponseSchema()
+        return schema.dump(
+            {"link": app_config.mwdb.base_url + "/group/invite?token=" + token}
+        )
+
+
+@rate_limited_resource
+class GroupJoinResource(Resource):
+    @requires_authorization
+    def get(self):
+        """
+        ---
+        summary: Get information about group from invitation token
+        description: |
+            Get information about group from invitation token
+
+        security:
+            - bearerAuth: []
+        parameters:
+            - in: query
+              name: token
+              schema:
+                type: string
+              description: token
+        tags:
+            - group
+        responses:
+            200:
+                description: When data was read successfully
+                content:
+                  application/json:
+                    schema: GroupSuccessResponseSchema
+            400:
+                description: When request body is invalid
+            403:
+                description: When there was a problem with the token
+            503:
+                description: |
+                    Request canceled due to database statement timeout.
+        """
+        args = load_schema(request.args, GroupInviteTokenRequestSchema())
+        token_data = User.verify_group_invite_token(args["token"])
+        if not token_data:
+            raise Forbidden(
+                "Token expired, please re-request invitation to the group administrator"
+            )
+
+        invited_user, group_id = token_data
+        if g.auth_user.id != invited_user.id:
+            raise Forbidden("This invitation is not for you")
+
+        group_obj = db.session.query(Group).filter(Group.id == group_id).first()
+        if group_obj is None:
+            raise NotFound("Group does not exist")
+
+        schema = GroupSuccessResponseSchema()
+        return schema.dump({"name": group_obj.name})
+
+    @requires_authorization
+    def post(selt):
+        """
+        ---
+        summary: Join group using invitation link
+        description: |
+            Join group using link
+
+        security:
+            - bearerAuth: []
+        parameters:
+            - in: query
+              name: token
+              schema:
+                type: string
+              description: token
+        tags:
+            - group
+        responses:
+            200:
+                description: When user joined group successfully
+                content:
+                  application/json:
+                    schema: GroupSuccessResponseSchema
+            400:
+                description: When request body is invalid
+            403:
+                description: When there was a problem with the token
+            409:
+                description: When user is already a member of this group
+            503:
+                description: |
+                    Request canceled due to database statement timeout.
+        """
+        args = load_schema(request.args, GroupInviteTokenRequestSchema())
+        token_data = User.verify_group_invite_token(args["token"])
+        if not token_data:
+            raise Forbidden(
+                "Token expired, please re-request invitation to the group administrator"
+            )
+
+        invited_user, group_id = token_data
+        if g.auth_user.id != invited_user.id:
+            raise Forbidden("This invitation is not for you")
+
+        member = (
+            db.session.query(Member)
+            .filter(Member.group_id == group_id)
+            .filter(Member.user_id == g.auth_user.id)
+        ).first()
+
+        if member is not None:
+            raise Conflict("You are already member of this group")
+
+        group_obj = db.session.query(Group).filter(Group.id == group_id).first()
+        if group_obj is None:
+            raise NotFound("This group does not exist")
+
+        group_obj.add_member(g.auth_user)
+        db.session.commit()
+
+        schema = GroupSuccessResponseSchema()
+        return schema.dump({"name": group_obj.name})

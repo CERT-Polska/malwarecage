@@ -40,6 +40,10 @@ class GroupMemberUpdateRequestSchema(Schema):
     group_admin = fields.Boolean(required=True)
 
 
+class GroupInviteTokenRequestSchema(Schema):
+    token = fields.Str(required=True)
+
+
 class GroupBasicResponseSchema(GroupNameSchemaBase):
     capabilities = fields.List(fields.Str(), required=True, allow_none=False)
     private = fields.Boolean(required=True)
@@ -67,3 +71,7 @@ class GroupListResponseSchema(Schema):
 
 class GroupSuccessResponseSchema(GroupNameSchemaBase):
     pass
+
+
+class GroupInvitationLinkResponseSchema(Schema):
+    link = fields.Str(required=True, allow_none=False)

@@ -2,7 +2,7 @@ import os
 
 import jwt
 
-from .utils import MwdbTest, ShouldRaise, admin_login, rand_string
+from .utils import MwdbTest, ShouldRaise, admin_login, random_name
 
 
 def test_profile_change_invalidate(typical_session, admin_session):
@@ -178,3 +178,35 @@ def test_invalid_jwt(admin_session):
     session.set_auth_token(jwt.encode(missing_sub_jwt, secret_key, algorithm="HS512"))
     response = session.request("get", "/server")
     assert not response["is_authenticated"]
+
+
+def test_group_invite(admin_session):
+    alice_username = random_name()
+    bob_username = random_name()
+    charlie_username = random_name()
+    group_name = random_name()
+    admin_session.register_user(alice_username, "AliceAlice")
+    admin_session.register_user(bob_username, "BobBobBob")
+    admin_session.register_user(charlie_username, "CharlieCharlie")
+    admin_session.create_group(group_name)
+    admin_session.add_member(group_name, alice_username)
+    # set Alice as group_admin
+    admin_session.update_group_admin(group_name, alice_username, True)
+
+    alice_session = MwdbTest()
+    bob_session = MwdbTest()
+    charlie_session = MwdbTest()
+    alice_session.login_as(alice_username, "AliceAlice")
+    bob_session.login_as(bob_username, "BobBobBob")
+    charlie_session.login_as(charlie_username, "CharlieCharlie")
+
+    data = alice_session.request_group_invite_link(group_name, bob_username)
+    token = data["link"].split("=")[-1]
+
+    with ShouldRaise(403):
+        charlie_session.join_group_with_invitation_link(token)
+
+    bob_session.join_group_with_invitation_link(token)
+
+    members = admin_session.get_group(group_name)["users"]
+    assert bob_username in members

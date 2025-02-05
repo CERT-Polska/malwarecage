@@ -1,0 +1,5 @@
+Hi {login},
+
+You have been invited to join a new group.
+
+To view the invitation click this link: {base_url}/profile/group/join?token={group_invite_token}

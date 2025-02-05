@@ -49,7 +49,13 @@ from mwdb.resources.file import (
     FileItemResource,
     FileResource,
 )
-from mwdb.resources.group import GroupListResource, GroupMemberResource, GroupResource
+from mwdb.resources.group import (
+    GroupInviteResource,
+    GroupJoinResource,
+    GroupListResource,
+    GroupMemberResource,
+    GroupResource,
+)
 from mwdb.resources.karton import KartonAnalysisResource, KartonObjectResource
 from mwdb.resources.metakey import (
     MetakeyDefinitionManageResource,
@@ -369,6 +375,8 @@ api.add_resource(UserPendingResource, "/user/<login>/pending")
 api.add_resource(GroupListResource, "/group")
 api.add_resource(GroupResource, "/group/<name>")
 api.add_resource(GroupMemberResource, "/group/<name>/member/<login>")
+api.add_resource(GroupInviteResource, "/group/<name>/invite/<invited_user>")
+api.add_resource(GroupJoinResource, "/group/join")
 
 # OAuth endpoints
 if app_config.mwdb.enable_oidc:

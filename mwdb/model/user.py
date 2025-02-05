@@ -174,7 +174,7 @@ class User(db.Model):
         return token
 
     @staticmethod
-    def _verify_token(token, fields, scope) -> Optional[Tuple["User", Optional[str]]]:
+    def _verify_token(token, fields, scope) -> Optional[Tuple["User", dict]]:
         data = verify_token(token, scope)
         if data is None:
             return None
@@ -190,7 +190,7 @@ class User(db.Model):
             if data[field] != getattr(user_obj, field):
                 return None
 
-        return user_obj, data.get("provider")
+        return user_obj, data
 
     def generate_session_token(self, provider=None):
         return self._generate_token(
@@ -207,22 +207,52 @@ class User(db.Model):
             expiration=14 * 24 * 3600,
         )
 
+    def generate_group_invite_token(self, group_id, expiration):
+        return self._generate_token(
+            user_fields=["identity_ver"],
+            scope=AuthScope.group_invite,
+            expiration=expiration,
+            group_id=group_id,
+        )
+
     @staticmethod
-    def verify_session_token(token) -> Optional[Tuple["User", Optional[str]]]:
-        return User._verify_token(
+    def verify_group_invite_token(token: str) -> Optional[Tuple["User", str]]:
+        result = User._verify_token(
+            token,
+            ["identity_ver"],
+            scope=AuthScope.group_invite,
+        )
+        if result is None:
+            return None
+        else:
+            user, data = result
+            return user, data["group_id"]
+
+    @staticmethod
+    def verify_session_token(token: str) -> Optional[Tuple["User", Optional[str]]]:
+        result = User._verify_token(
             token,
             ["password_ver", "identity_ver"],
             scope=AuthScope.session,
         )
+        if result is None:
+            return None
+        else:
+            user, data = result
+            return user, data.get("provider")
 
     @staticmethod
-    def verify_set_password_token(token) -> Optional["User"]:
+    def verify_set_password_token(token: str) -> Optional["User"]:
         result = User._verify_token(
             token,
             ["password_ver"],
             scope=AuthScope.set_password,
         )
-        return None if result is None else result[0]
+        if result is None:
+            return None
+        else:
+            user, _ = result
+            return user
 
     @staticmethod
     def verify_legacy_token(token):
