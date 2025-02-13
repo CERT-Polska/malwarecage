@@ -1,6 +1,6 @@
 import datetime
 from enum import Enum
-from typing import Any, Set
+from typing import Any
 
 import jwt
 
@@ -52,14 +52,14 @@ def verify_token(token: str, scope: AuthScope) -> Any:
     return data
 
 
-def verify_legacy_token(token: str, required_fields: Set[str]) -> Any:
+def verify_legacy_api_key(token: str) -> Any:
     try:
         data = jwt.decode(
             token,
             key=app_config.mwdb.secret_key,
             algorithms=["HS512"],
         )
-        if set(data.keys()) != required_fields:
+        if set(data.keys()) != {"login", "api_key_id"}:
             return None
 
     except jwt.InvalidTokenError:

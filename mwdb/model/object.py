@@ -1,5 +1,4 @@
 import datetime
-from collections import namedtuple
 from typing import Any, Dict, Optional
 from uuid import UUID
 
@@ -477,8 +476,6 @@ class Object(db.Model):
             (default: currently authenticated user)
         :return: Object instance or None
         """
-        from .group import Group
-
         if requestor is None:
             requestor = g.auth_user
 
@@ -491,23 +488,6 @@ class Object(db.Model):
         if obj.has_explicit_access(requestor):
             return obj
 
-        # If not, but has "share_queried_objects" rights: give_access
-        if requestor.has_rights(Capabilities.share_queried_objects):
-            share_queried_groups = (
-                db.session.query(Group)
-                .filter(
-                    and_(
-                        Group.capabilities.contains(
-                            [Capabilities.share_queried_objects]
-                        ),
-                        requestor.is_member(Group.id),
-                    )
-                )
-                .all()
-            )
-            for group in share_queried_groups:
-                obj.give_access(group.id, AccessType.QUERIED, obj, requestor)
-            return obj
         # Well.. I've tried
         return None
 
@@ -598,7 +578,6 @@ class Object(db.Model):
         as_dict=False,
         check_permissions=True,
         show_hidden=False,
-        show_karton=False,
     ):
         """
         Gets all object attributes
@@ -608,7 +587,6 @@ class Object(db.Model):
         :param check_permissions: |
             Filter results including current user permissions (default: True)
         :param show_hidden: Show hidden attributes
-        :param show_karton: Show Karton attributes (for compatibility)
         """
         attributes = (
             db.session.query(Attribute)
@@ -632,19 +610,6 @@ class Object(db.Model):
 
         attributes = attributes.order_by(Attribute.id).all()
 
-        if show_karton:
-            KartonAttribute = namedtuple("KartonAttribute", ["key", "value"])
-
-            attributes += [
-                KartonAttribute(key="karton", value=str(analysis.id))
-                for analysis in (
-                    db.session.query(KartonAnalysis)
-                    .filter(KartonAnalysis.objects.any(id=self.id))
-                    .order_by(KartonAnalysis.creation_time)
-                    .all()
-                )
-            ]
-
         if not as_dict:
             return attributes
 
@@ -656,23 +621,12 @@ class Object(db.Model):
         return dict_attributes
 
     def add_attribute(
-        self, key, value, commit=True, check_permissions=True, include_karton=True
+        self,
+        key,
+        value,
+        commit=True,
+        check_permissions=True,
     ):
-        if include_karton and key == "karton":
-            karton_id = UUID(value)
-
-            if check_permissions and not g.auth_user.has_rights(
-                Capabilities.karton_assign
-            ):
-                # User doesn't have permissions to assign analysis
-                return None
-
-            _, is_new = self.assign_analysis(karton_id, commit=False)
-
-            if commit:
-                db.session.commit()
-            return is_new
-
         if check_permissions:
             attribute_definition = AttributeDefinition.query_for_set(key).first()
         else:

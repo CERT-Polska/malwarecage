@@ -25,20 +25,6 @@ def test_add_sample(admin_session):
     parse(res['upload_time'])
 
 
-def test_add_sample_legacy(admin_session):
-    filename = rand_string()
-    file_content = rand_string()
-
-    res = admin_session.add_sample_legacy(filename, file_content)
-
-    assert res['file_name'] == filename
-    assert res['file_size'] == len(file_content)
-    assert res['parents'] == []
-    assert res['children'] == []
-    assert res['tags'] == []
-    parse(res['upload_time'])
-
-
 def test_get_sample(admin_session):
     filename = rand_string()
     file_content = rand_string()

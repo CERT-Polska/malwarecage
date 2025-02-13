@@ -30,23 +30,6 @@ def test_manage_users(admin_session):
     request("PUT", "/group/{}".format(group_name), json={"capabilities": []})
 
 
-def test_share_queried_objects(admin_session):
-    testCase = RelationTestCase(admin_session)
-
-    Alice = testCase.new_user("Alice")
-    Bob = testCase.new_user("Bob", capabilities=["share_queried_objects"])
-
-    Sample = testCase.new_sample("Sample")
-
-    with ShouldRaise(status_code=404):
-        Alice.session.get_sample(Sample.dhash)
-
-    Bob.session.get_sample(Sample.dhash)
-
-    Sample.should_not_access(Alice)
-    Sample.should_access(Bob)
-
-
 def test_access_all_objects(admin_session):
     testCase = RelationTestCase(admin_session)
 

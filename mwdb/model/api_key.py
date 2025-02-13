@@ -4,7 +4,12 @@ import uuid
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm.exc import NoResultFound
 
-from mwdb.core.auth import AuthScope, generate_token, verify_legacy_token, verify_token
+from mwdb.core.auth import (
+    AuthScope,
+    generate_token,
+    verify_legacy_api_key,
+    verify_token,
+)
 from mwdb.core.deprecated import DeprecatedFeature, uses_deprecated_api
 
 from . import db
@@ -35,7 +40,7 @@ class APIKey(db.Model):
 
         if data is None:
             # check for legacy API Token
-            data = verify_legacy_token(token, required_fields={"login", "api_key_id"})
+            data = verify_legacy_api_key(token)
             if data is None:
                 return None
             else:

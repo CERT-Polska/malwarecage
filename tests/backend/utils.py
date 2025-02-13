@@ -181,31 +181,6 @@ class MwdbTest(object):
         res.raise_for_status()
         return res
 
-    def add_sample_legacy(
-        self, filename=None, content=None, parent=None, metakeys=None, upload_as=None
-    ):
-        parent = parent or "root"
-
-        if filename is None:
-            filename = str(uuid.uuid4())
-
-        if content is None:
-            content = str(uuid.uuid4())
-
-        params = {}
-        if metakeys:
-            params["metakeys"] = json.dumps(metakeys)
-        if upload_as:
-            params["upload_as"] = upload_as
-
-        res = self.session.post(
-            self.mwdb_url + "/file/" + parent,
-            files={"file": (filename, content)},
-            data=params,
-        )
-        res.raise_for_status()
-        return res.json()
-
     def add_sample(
         self,
         filename=None,
@@ -464,9 +439,9 @@ class MwdbTest(object):
         return res.json()
 
     def search(self, query):
-        res = self.session.post(self.mwdb_url + "/search", json={"query": query})
+        res = self.session.get(self.mwdb_url + "/object", params={"query": query})
         res.raise_for_status()
-        return res.json()
+        return res.json()["objects"]
 
     def check_operational(self):
         for attempt in range(10):

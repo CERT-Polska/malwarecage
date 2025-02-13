@@ -8,7 +8,6 @@ from werkzeug.routing import BaseConverter
 
 from mwdb.core.app import api, app
 from mwdb.core.config import app_config
-from mwdb.core.deprecated import DeprecatedFeature, uses_deprecated_api
 from mwdb.core.log import getLogger, setup_logger
 from mwdb.core.metrics import metric_api_requests, metrics_enabled
 from mwdb.core.plugins import PluginAppContext, load_plugins
@@ -42,7 +41,6 @@ from mwdb.resources.config import (
     ConfigResource,
     ConfigStatsResource,
 )
-from mwdb.resources.download import DownloadResource, RequestSampleDownloadResource
 from mwdb.resources.file import (
     FileDownloadResource,
     FileDownloadZipResource,
@@ -51,13 +49,6 @@ from mwdb.resources.file import (
 )
 from mwdb.resources.group import GroupListResource, GroupMemberResource, GroupResource
 from mwdb.resources.karton import KartonAnalysisResource, KartonObjectResource
-from mwdb.resources.metakey import (
-    MetakeyDefinitionManageResource,
-    MetakeyListDefinitionManageResource,
-    MetakeyListDefinitionResource,
-    MetakeyPermissionResource,
-    MetakeyResource,
-)
 from mwdb.resources.metrics import MetricsResource
 from mwdb.resources.oauth import (
     OpenIDAccountIdentitiesResource,
@@ -88,7 +79,6 @@ from mwdb.resources.remotes import (
     RemoteTextBlobPullResource,
     RemoteTextBlobPushResource,
 )
-from mwdb.resources.search import SearchResource
 from mwdb.resources.server import (
     PingResource,
     ServerAdminInfoResource,
@@ -204,11 +194,6 @@ def require_auth():
         # Not a session token? Maybe APIKey token
         if g.auth_user is None:
             g.auth_user = APIKey.verify_token(token)
-        # Still nothing? Maybe legacy API key
-        if g.auth_user is None:
-            g.auth_user = User.verify_legacy_token(token)
-            if g.auth_user is not None:
-                uses_deprecated_api(DeprecatedFeature.legacy_api_key_v1)
 
     if g.auth_user:
         if (
@@ -307,13 +292,6 @@ api.add_resource(ConfigItemResource, "/config/<hash64:identifier>")
 api.add_resource(TextBlobResource, "/blob")
 api.add_resource(TextBlobItemResource, "/blob/<hash64:identifier>")
 
-# Download endpoints
-api.add_resource(RequestSampleDownloadResource, "/request/sample/<identifier>")
-api.add_resource(DownloadResource, "/download/<access_token>")
-
-# Search endpoints
-api.add_resource(SearchResource, "/search")
-
 # Quick query endpoints
 api.add_resource(
     QuickQueryResource, "/<any(file, config, blob, object):type>/quick_query"
@@ -333,17 +311,6 @@ api.add_resource(
 api.add_resource(AttributeDefinitionListResource, "/attribute")
 api.add_resource(AttributeDefinitionResource, "/attribute/<key>")
 api.add_resource(AttributePermissionResource, "/attribute/<key>/permissions")
-
-# Attribute (metakey) deprecated endpoints
-api.add_resource(MetakeyListDefinitionResource, "/meta/list/<any(read, set):access>")
-api.add_resource(
-    MetakeyResource, "/<any(file, config, blob, object):type>/<hash64:identifier>/meta"
-)
-api.add_resource(MetakeyListDefinitionManageResource, "/meta/manage")
-api.add_resource(MetakeyDefinitionManageResource, "/meta/manage/<key>")
-api.add_resource(
-    MetakeyPermissionResource, "/meta/manage/<key>/permissions/<group_name>"
-)
 
 # Karton endpoints
 api.add_resource(

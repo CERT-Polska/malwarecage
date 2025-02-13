@@ -5,7 +5,6 @@ from sqlalchemy import func
 from werkzeug.exceptions import BadRequest, Conflict, Forbidden, NotFound
 
 from mwdb.core.capabilities import Capabilities
-from mwdb.core.deprecated import DeprecatedFeature, deprecated_endpoint
 from mwdb.core.plugins import hooks
 from mwdb.core.service import Resource
 from mwdb.model import Config, TextBlob, db
@@ -14,7 +13,6 @@ from mwdb.schema.blob import BlobCreateSpecSchema
 from mwdb.schema.config import (
     ConfigCreateRequestSchema,
     ConfigItemResponseSchema,
-    ConfigLegacyCreateRequestSchema,
     ConfigListResponseSchema,
     ConfigStatsRequestSchema,
     ConfigStatsResponseSchema,
@@ -262,9 +260,6 @@ class ConfigResource(ObjectResource, ConfigUploader):
                       config_type: static
                       parent: null
                       upload_as: "*"
-                      metakeys:
-                       - key: string
-                         value: string
                       attributes:
                        - key: string
                          value: string
@@ -282,7 +277,7 @@ class ConfigResource(ObjectResource, ConfigUploader):
             403:
                 description: |
                     No permissions to perform additional operations
-                    (e.g. adding parent, metakeys)
+                    (e.g. adding parent, attributes)
             404:
                 description: |
                     One of attribute keys doesn't exist
@@ -302,11 +297,10 @@ class ConfigResource(ObjectResource, ConfigUploader):
         return self.create_object(obj)
 
 
-class ConfigItemResource(ObjectItemResource, ConfigUploader):
+class ConfigItemResource(ObjectItemResource):
 
     ObjectType = Config
     ItemResponseSchema = ConfigItemResponseSchema
-    CreateRequestSchema = ConfigLegacyCreateRequestSchema
 
     def call_specialised_remove_hook(self, config):
         hooks.on_removed_config(config)
@@ -343,108 +337,6 @@ class ConfigItemResource(ObjectItemResource, ConfigUploader):
                     Request canceled due to database statement timeout.
         """
         return super().get(identifier)
-
-    @deprecated_endpoint(DeprecatedFeature.legacy_object_upload)
-    @requires_authorization
-    @requires_capabilities(Capabilities.adding_configs)
-    def put(self, identifier):
-        """
-        ---
-        summary: Upload config
-        description: |
-            Uploads a new config.
-
-            Requires `adding_configs` capability.
-
-            Deprecated: use POST /config method instead.
-        security:
-            - bearerAuth: []
-        deprecated: true
-        tags:
-            - config
-        parameters:
-            - in: path
-              name: identifier
-              schema:
-                type: string
-              default: root
-              description: |
-                Parent object identifier or `root` if there is no parent.
-
-                User must have `adding_parents` capability to specify a parent object.
-        requestBody:
-            required: true
-            content:
-              multipart/form-data:
-                schema:
-                  type: object
-                  description: |
-                    Configuration to be uploaded with additional parameters
-                    (verbose mode)
-                  properties:
-                    json:
-                      type: object
-                      properties:
-                          family:
-                             type: string
-                          config_type:
-                             type: string
-                             default: static
-                          cfg:
-                             type: object
-                      description: JSON-encoded config object specification
-                    metakeys:
-                      type: object
-                      properties:
-                          metakeys:
-                            type: array
-                            items:
-                                $ref: '#/components/schemas/MetakeyItemRequest'
-                      description: |
-                        Attributes to be added after file upload
-
-                        User must be allowed to set specified attribute keys.
-                    upload_as:
-                      type: string
-                      default: '*'
-                      description: |
-                        Group that object will be shared with.
-
-                        If user doesn't have `sharing_with_all` capability,
-                        user must be a member of specified group
-                        (unless `Group doesn't exist` error will occur).
-
-                        If default value `*` is specified - object will be
-                        exclusively shared with all user's groups excluding `public`.
-                  required:
-                    - json
-              application/json:
-                schema: ConfigCreateSpecSchema
-        responses:
-            200:
-                description: Information about uploaded config
-                content:
-                  application/json:
-                    schema: ConfigItemResponseSchema
-            403:
-                description: |
-                    No permissions to perform additional operations
-                    (e.g. adding parent, metakeys)
-            404:
-                description: |
-                    One of attribute keys doesn't exist or
-                    user doesn't have permission to set it.
-
-                    Specified `upload_as` group doesn't exist or
-                    user doesn't have permission to share objects
-                    with that group
-            409:
-                description: Object exists yet but has different type
-            503:
-                description: |
-                    Request canceled due to database statement timeout.
-        """
-        return super().put(identifier)
 
     @requires_authorization
     @requires_capabilities(Capabilities.removing_objects)

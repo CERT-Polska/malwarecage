@@ -6,7 +6,6 @@ from .config import ConfigLatestItemResponseSchema
 from .object import (
     ObjectCreateRequestSchemaBase,
     ObjectItemResponseSchema,
-    ObjectLegacyMetakeysMixin,
     ObjectListItemResponseSchema,
     ObjectListResponseSchemaBase,
 )
@@ -31,12 +30,6 @@ class FileCreateRequestSchema(Schema):
             else:
                 del params["options"]
         return params
-
-
-class FileLegacyCreateRequestSchema(
-    ObjectCreateRequestSchemaBase, ObjectLegacyMetakeysMixin
-):
-    pass
 
 
 class FileListItemResponseSchema(ObjectListItemResponseSchema):

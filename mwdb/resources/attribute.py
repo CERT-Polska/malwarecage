@@ -154,7 +154,7 @@ class AttributeListResource(Resource):
 
         key = obj["key"]
         value = obj["value"]
-        is_new = db_object.add_attribute(key, value, include_karton=False)
+        is_new = db_object.add_attribute(key, value)
         if is_new is None:
             raise NotFound(
                 f"Attribute '{key}' is not defined or you have "

@@ -1,5 +1,3 @@
-from string import Template
-
 from flask import g
 from sqlalchemy import cast, func
 from sqlalchemy.dialects.postgresql import JSONB
@@ -34,14 +32,6 @@ class Attribute(db.Model):
     )
     value = db.Column(JSONB, nullable=False)
     template = db.relationship("AttributeDefinition", lazy="joined")
-
-    @property
-    def url(self):
-        # deprecated, left for metakey compatibility
-        if self.template.url_template:
-            s = Template(self.template.url_template)
-            return s.safe_substitute(value=self.value)
-        return None
 
     @property
     def label(self):

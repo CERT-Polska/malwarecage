@@ -2,7 +2,6 @@ import { AxiosError } from "axios";
 
 export enum Capability {
     manageUsers = "manage_users",
-    shareQueriedObjects = "share_queried_objects",
     accessAllObjects = "access_all_objects",
     sharingWithAll = "sharing_with_all",
     accessUploaderInfo = "access_uploader_info",

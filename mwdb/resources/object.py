@@ -1,12 +1,8 @@
-import json
-from uuid import UUID
-
 from flask import g, request
-from werkzeug.exceptions import BadRequest, Forbidden, MethodNotAllowed, NotFound
+from werkzeug.exceptions import BadRequest, Forbidden, NotFound
 
 from mwdb.core.capabilities import Capabilities
 from mwdb.core.config import app_config
-from mwdb.core.deprecated import DeprecatedFeature, uses_deprecated_api
 from mwdb.core.plugins import hooks
 from mwdb.core.search import QueryBaseException, build_query
 from mwdb.core.service import Resource
@@ -33,9 +29,6 @@ from . import (
 class ObjectUploader:
     """
     Mixin adding common object upload capabilities to resource
-
-    Merge it with ObjectsResource during retirement of ObjectResource
-    deprecated upload methods
     """
 
     ObjectType = None
@@ -74,44 +67,19 @@ class ObjectUploader:
         else:
             parent_object = None
 
-        # Validate metakeys and Karton assignment
-        analysis_id = params.get("karton_id")
+        # If not, rely on 'attributes'
+        attributes = params["attributes"]
+        for attribute in params["attributes"]:
+            key = attribute["key"]
+            if not AttributeDefinition.query_for_set(key).first():
+                raise NotFound(
+                    f"Attribute '{key}' not defined or insufficient "
+                    "permissions to set that one"
+                )
 
-        if params["metakeys"]:
-            uses_deprecated_api(DeprecatedFeature.legacy_metakeys_upload_option)
-            # If 'metakeys' are defined: keep legacy behavior
-            if "attributes" in params and params["attributes"]:
-                raise BadRequest("'attributes' and 'metakeys' options can't be mixed")
-
-            attributes = params["metakeys"]
-            for attribute in params["metakeys"]:
-                key = attribute["key"]
-                if key == "karton":
-                    if analysis_id is not None:
-                        raise BadRequest(
-                            "You can't provide more than one Karton analysis identifier"
-                        )
-                    try:
-                        analysis_id = UUID(attribute["value"])
-                    except (ValueError, AttributeError):
-                        raise BadRequest("'karton' attribute accepts only UUID values")
-                elif not AttributeDefinition.query_for_set(key).first():
-                    raise NotFound(
-                        f"Attribute '{key}' not defined or insufficient "
-                        "permissions to set that one"
-                    )
-        else:
-            # If not, rely on 'attributes'
-            attributes = params["attributes"]
-            for attribute in params["attributes"]:
-                key = attribute["key"]
-                if not AttributeDefinition.query_for_set(key).first():
-                    raise NotFound(
-                        f"Attribute '{key}' not defined or insufficient "
-                        "permissions to set that one"
-                    )
-
-        if analysis_id is not None:
+        # Validate Karton assignment
+        karton_id = params.get("karton_id")
+        if karton_id is not None:
             if not g.auth_user.has_rights(Capabilities.karton_assign):
                 raise Forbidden(
                     "You are not permitted to assign Karton analysis to object"
@@ -130,7 +98,7 @@ class ObjectUploader:
             parent_object,
             share_with,
             attributes,
-            analysis_id,
+            karton_id,
             tags,
             share_3rd_party,
         )
@@ -216,9 +184,6 @@ class ObjectResource(Resource):
                 description: |
                     Request canceled due to database statement timeout.
         """
-        if "page" in request.args:
-            uses_deprecated_api(DeprecatedFeature.legacy_page_parameter)
-
         obj = load_schema(request.args, ObjectListRequestSchema())
 
         pivot_obj = None
@@ -243,9 +208,6 @@ class ObjectResource(Resource):
         ).order_by(Object.id.desc())
         if pivot_obj:
             db_query = db_query.filter(Object.id < pivot_obj.id)
-        # Legacy parameter - to be removed in the future
-        elif obj["page"] is not None and obj["page"] > 1:
-            db_query = db_query.offset((obj["page"] - 1) * 10)
 
         objects = db_query.limit(limit).all()
 
@@ -253,10 +215,9 @@ class ObjectResource(Resource):
         return schema.dump(objects, many=True)
 
 
-class ObjectItemResource(Resource, ObjectUploader):
+class ObjectItemResource(Resource):
     ObjectType = Object
     ItemResponseSchema = ObjectItemResponseSchema
-    CreateRequestSchema = None
 
     def call_specialised_remove_hook(self, obj):
         pass
@@ -297,41 +258,6 @@ class ObjectItemResource(Resource, ObjectUploader):
             raise NotFound("Object not found")
         schema = self.ItemResponseSchema()
         return schema.dump(obj)
-
-    def _get_upload_args(self, parent_identifier):
-        """
-        Transforms upload arguments mixed into various request fields
-        """
-        if request.is_json:
-            # If request is application/json: all args are in JSON
-            args = json.loads(request.get_data(parse_form_data=True, as_text=True))
-        else:
-            if "json" in request.form:
-                # If request is multipart/form-data:
-                # some args are in JSON and some are part of form
-                args = json.loads(request.form["json"])
-            else:
-                args = {}
-            if request.form.get("metakeys"):
-                args["metakeys"] = request.form["metakeys"]
-            if request.form.get("upload_as"):
-                args["upload_as"] = request.form["upload_as"]
-        args["parent"] = parent_identifier if parent_identifier != "root" else None
-        return args
-
-    @requires_authorization
-    def post(self, identifier):
-        if self.ObjectType is Object:
-            raise MethodNotAllowed()
-
-        schema = self.CreateRequestSchema()
-        obj = load_schema(self._get_upload_args(identifier), schema)
-
-        return self.create_object(obj)
-
-    @requires_authorization
-    def put(self, identifier):
-        return self.post(identifier)
 
     @requires_authorization
     @requires_capabilities(Capabilities.removing_objects)

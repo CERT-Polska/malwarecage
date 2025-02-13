@@ -4,7 +4,6 @@ import { Capability } from "@mwdb-web/types/types";
 export let capabilitiesList: Record<Capability, string> = {
     [Capability.manageUsers]:
         "Managing users and groups (system administration)",
-    [Capability.shareQueriedObjects]: "Query for all objects in system",
     [Capability.accessAllObjects]:
         "Has access to all new uploaded objects into system",
     [Capability.sharingWithAll]: "Can share objects with all groups in system",

@@ -3,7 +3,6 @@ from marshmallow import Schema, fields
 from .object import (
     ObjectCreateRequestSchemaBase,
     ObjectItemResponseSchema,
-    ObjectLegacyMetakeysMixin,
     ObjectListItemResponseSchema,
     ObjectListResponseSchemaBase,
 )
@@ -21,12 +20,6 @@ class ConfigCreateSpecSchema(Schema):
 
 
 class ConfigCreateRequestSchema(ObjectCreateRequestSchemaBase, ConfigCreateSpecSchema):
-    pass
-
-
-class ConfigLegacyCreateRequestSchema(
-    ConfigCreateRequestSchema, ObjectLegacyMetakeysMixin
-):
     pass
 
 

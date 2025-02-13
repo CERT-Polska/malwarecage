@@ -2,7 +2,6 @@ from flask import Response, g, request
 from werkzeug.exceptions import BadRequest, Conflict, Forbidden, NotFound, Unauthorized
 
 from mwdb.core.capabilities import Capabilities
-from mwdb.core.deprecated import DeprecatedFeature, deprecated_endpoint
 from mwdb.core.plugins import hooks
 from mwdb.core.service import Resource
 from mwdb.model import File
@@ -12,7 +11,6 @@ from mwdb.schema.file import (
     FileCreateRequestSchema,
     FileDownloadTokenResponseSchema,
     FileItemResponseSchema,
-    FileLegacyCreateRequestSchema,
     FileListResponseSchema,
 )
 
@@ -156,10 +154,6 @@ class FileResource(ObjectResource, FileUploader):
                           type: array
                           items:
                             $ref: '#/components/schemas/AttributeItemRequest'
-                        metakeys:
-                          type: array
-                          items:
-                            $ref: '#/components/schemas/MetakeyItemRequest'
                         tags:
                           type: array
                           items:
@@ -198,10 +192,9 @@ class FileResource(ObjectResource, FileUploader):
         return self.create_object(obj["options"])
 
 
-class FileItemResource(ObjectItemResource, FileUploader):
+class FileItemResource(ObjectItemResource):
     ObjectType = File
     ItemResponseSchema = FileItemResponseSchema
-    CreateRequestSchema = FileLegacyCreateRequestSchema
 
     def call_specialised_remove_hook(self, file):
         hooks.on_removed_file(file)
@@ -238,95 +231,6 @@ class FileItemResource(ObjectItemResource, FileUploader):
                     Request canceled due to database statement timeout.
         """
         return super().get(identifier)
-
-    @deprecated_endpoint(DeprecatedFeature.legacy_object_upload)
-    @requires_authorization
-    @requires_capabilities(Capabilities.adding_files)
-    def post(self, identifier):
-        """
-        ---
-        summary: Upload file
-        description: |
-            Uploads a new file.
-
-            Requires `adding_files` capability.
-
-            Deprecated: use POST /file instead.
-        security:
-            - bearerAuth: []
-        deprecated: true
-        tags:
-            - file
-        parameters:
-            - in: path
-              name: identifier
-              schema:
-                type: string
-              default: 'root'
-              description: |
-                Parent object identifier or `root` if there is no parent.
-
-                User must have `adding_parents` capability to specify a parent object.
-        requestBody:
-            required: true
-            content:
-              multipart/form-data:
-                schema:
-                  type: object
-                  properties:
-                    file:
-                      type: string
-                      format: binary
-                      description: File contents to be uploaded
-                    metakeys:
-                      type: object
-                      properties:
-                          metakeys:
-                            type: array
-                            items:
-                                $ref: '#/components/schemas/MetakeyItemRequest'
-                      description: |
-                        Attributes to be added after file upload
-
-                        User must be allowed to set specified attribute keys.
-                    upload_as:
-                      type: string
-                      default: '*'
-                      description: |
-                        Group that object will be shared with.
-
-                        If user doesn't have `sharing_with_all` capability,
-                        user must be a member of specified group
-                        (unless `Group doesn't exist` error will occur).
-
-                        If default value `*` is specified - object will be
-                        exclusively shared with all user's groups excluding `public`.
-                  required:
-                    - file
-        responses:
-            200:
-                description: Information about uploaded file
-                content:
-                  application/json:
-                    schema: FileItemResponseSchema
-            403:
-                description: |
-                    No permissions to perform additional operations
-                    (e.g. adding parent, attributes)
-            404:
-                description: |
-                    One of attribute keys doesn't exist or user doesn't have
-                    permission to set it.
-
-                    Specified `upload_as` group doesn't exist or user doesn't have
-                    permission to share objects with that group
-            409:
-                description: Object exists yet but has different type
-            503:
-                description: |
-                    Request canceled due to database statement timeout.
-        """
-        return super().post(identifier)
 
     @requires_authorization
     @requires_capabilities(Capabilities.removing_objects)

@@ -4,7 +4,6 @@ from .config import ConfigItemResponseSchema
 from .object import (
     ObjectCreateRequestSchemaBase,
     ObjectItemResponseSchema,
-    ObjectLegacyMetakeysMixin,
     ObjectListItemResponseSchema,
     ObjectListResponseSchemaBase,
 )
@@ -19,10 +18,6 @@ class BlobCreateSpecSchema(Schema):
 
 
 class BlobCreateRequestSchema(ObjectCreateRequestSchemaBase, BlobCreateSpecSchema):
-    pass
-
-
-class BlobLegacyCreateRequestSchema(BlobCreateRequestSchema, ObjectLegacyMetakeysMixin):
     pass
 
 

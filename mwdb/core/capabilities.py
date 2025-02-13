@@ -1,8 +1,6 @@
 class Capabilities(object):
     # Can create/update users and groups
     manage_users = "manage_users"
-    # Queried objects by members are automatically shared with this group
-    share_queried_objects = "share_queried_objects"
     # All new uploaded objects are automatically shared with this group
     access_all_objects = "access_all_objects"
     # Can share objects with all groups, have access to complete list of groups

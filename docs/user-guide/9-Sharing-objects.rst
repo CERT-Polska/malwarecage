@@ -149,11 +149,6 @@ Each capability has its own name and scope:
   Allows to access all users and groups in MWDB. Rules described in *Who is who?* don't apply to users with that permission. Enables user to create new user accounts, new groups and change their capabilities and membership. Allows to manage attribute keys, define new ones, delete and set the group permissions for them.
 
 * 
-  **share_queried_objects - Query for all objects in system**
-
-  That one is a bit tricky and will be possibly deprecated. MWDB will automatically share object and all descendants with group if member directly accessed it via identifier (knows the hash e.g. have direct link to the object). It can be used for bot accounts, so they have access only to these objects that are intended to be processed by them. Internally, we abandoned that idea, so that capability may not be stable.
-
-* 
   **access_all_objects - Has access to all uploaded objects into system**
 
   Grants access to all uploaded objects in MWDB.

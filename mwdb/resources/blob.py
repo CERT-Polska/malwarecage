@@ -2,14 +2,12 @@ from flask import request
 from werkzeug.exceptions import Conflict
 
 from mwdb.core.capabilities import Capabilities
-from mwdb.core.deprecated import DeprecatedFeature, deprecated_endpoint
 from mwdb.core.plugins import hooks
 from mwdb.model import TextBlob
 from mwdb.model.object import ObjectTypeConflictError
 from mwdb.schema.blob import (
     BlobCreateRequestSchema,
     BlobItemResponseSchema,
-    BlobLegacyCreateRequestSchema,
     BlobListResponseSchema,
 )
 
@@ -146,9 +144,6 @@ class TextBlobResource(ObjectResource, TextBlobUploader):
                       content: "blob contents"
                       parent: null
                       upload_as: "*"
-                      metakeys:
-                        - key: string
-                          value: string
                       attributes:
                         - key: string
                           value: string
@@ -166,7 +161,7 @@ class TextBlobResource(ObjectResource, TextBlobUploader):
             403:
                 description: |
                     No permissions to perform additional operations
-                    (e.g. adding metakeys)
+                    (e.g. adding attributes)
             404:
                 description: Specified group doesn't exist
             409:
@@ -181,10 +176,9 @@ class TextBlobResource(ObjectResource, TextBlobUploader):
         return self.create_object(obj)
 
 
-class TextBlobItemResource(ObjectItemResource, TextBlobUploader):
+class TextBlobItemResource(ObjectItemResource):
     ObjectType = TextBlob
     ItemResponseSchema = BlobItemResponseSchema
-    CreateRequestSchema = BlobLegacyCreateRequestSchema
 
     def call_specialised_remove_hook(self, text_blob):
         hooks.on_removed_text_blob(text_blob)
@@ -221,101 +215,6 @@ class TextBlobItemResource(ObjectItemResource, TextBlobUploader):
                     Request canceled due to database statement timeout.
         """
         return super().get(identifier)
-
-    @deprecated_endpoint(DeprecatedFeature.legacy_object_upload)
-    @requires_authorization
-    @requires_capabilities(Capabilities.adding_blobs)
-    def put(self, identifier):
-        """
-        ---
-        summary: Upload text blob
-        description: |
-            Uploads a new text blob.
-
-            Requires `adding_blobs` capability.
-
-            Deprecated: use POST /blob method instead.
-        security:
-            - bearerAuth: []
-        deprecated: true
-        tags:
-            - blob
-        parameters:
-            - in: path
-              name: identifier
-              schema:
-                type: string
-              default: root
-              description: |
-                Parent object identifier or `root` if there is no parent.
-
-                User must have `adding_parents` capability to specify a parent object.
-        requestBody:
-            required: true
-            content:
-              multipart/form-data:
-                schema:
-                  type: object
-                  description: |
-                    Blob to be uploaded with additional parameters
-                    (verbose mode)
-                  properties:
-                    json:
-                      type: object
-                      properties:
-                          blob_name:
-                             type: string
-                          blob_type:
-                             type: string
-                          content:
-                             type: string
-                      description: JSON-encoded blob object specification
-                    metakeys:
-                      type: object
-                      properties:
-                          metakeys:
-                            type: array
-                            items:
-                                $ref: '#/components/schemas/MetakeyItemRequest'
-                      description: |
-                        Attributes to be added after file upload
-
-                        User must be allowed to set specified attribute keys.
-                    upload_as:
-                      type: string
-                      default: '*'
-                      description: |
-                        Group that object will be shared with.
-
-                        If user doesn't have `sharing_with_all` capability,
-                        user must be a member of specified group
-                        (unless `Group doesn't exist` error will occur).
-
-                        If default value `*` is specified - object will be
-                        exclusively shared with all user's groups excluding `public`.
-                  required:
-                    - json
-              application/json:
-                schema: BlobCreateSpecSchema
-        responses:
-            200:
-                description: Text blob uploaded succesfully
-                content:
-                  application/json:
-                    schema: BlobItemResponseSchema
-            403:
-                description: |
-                    No permissions to perform additional operations
-                    (e.g. adding metakeys)
-            404:
-                description: Specified group doesn't exist
-            409:
-                description: Object exists yet but has different type
-            503:
-                description: |
-                    Request canceled due to database statement timeout.
-        """
-        return super().put(identifier)
 
     @requires_authorization
     @requires_capabilities(Capabilities.removing_objects)
