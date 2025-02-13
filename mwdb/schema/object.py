@@ -111,8 +111,13 @@ class ObjectItemResponseSchema(Schema):
         attribute="accessible_parents",
     )
     children = fields.Nested(
-        ObjectListItemResponseSchema, many=True, required=True, allow_none=False
+        ObjectListItemResponseSchema,
+        many=True,
+        required=True,
+        allow_none=False,
+        attribute="limit_children",
     )
+
     attributes = fields.Nested(
         AttributeItemResponseSchema, many=True, required=True, allow_none=False
     )
